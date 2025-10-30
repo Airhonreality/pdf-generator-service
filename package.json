@@ -18,7 +18,8 @@
   "homepage": "https://github.com/Airhonreality/pdf-generator-service#readme",
   "description": "",
   "dependencies": {
+    "chrome-aws-lambda": "^10.1.0",
     "express": "^5.1.0",
-    "puppeteer": "^24.26.0"
+    "puppeteer-core": "^10.1.0"
   }
 }
