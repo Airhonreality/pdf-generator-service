@@ -28,6 +28,5 @@
     "node": "20.x"
   },
   "devDependencies": {
-    "puppeteer": "^22.6.0"
   }
 }
