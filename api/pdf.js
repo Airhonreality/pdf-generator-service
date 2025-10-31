@@ -1,7 +1,7 @@
 /**
  * PDF Generator - Vercel Serverless Function
  * 
- * Esta función serverless genera PDFs desde HTML usando Puppeteer y chrome-aws-lambda.
+ * Esta función serverless genera PDFs desde HTML usando Puppeteer y @sparticuz/chromium.
  * Está optimizada para ejecutarse en el entorno de Vercel con CORS habilitado.
  */
 
@@ -23,6 +23,9 @@ module.exports = async (req, res) => {
   console.log('🔧 Vercel Region:', process.env.VERCEL_REGION);
   console.log('🔧 Vercel Env:', process.env.VERCEL_ENV);
   console.log('🔧 Vercel URL:', process.env.VERCEL_URL);
+  console.log('🟢 process.version:', process.version);
+  console.log('🟢 process.versions.node:', process.versions.node);
+  console.log('🟢 process.memoryUsage:', process.memoryUsage());
 
   // Configurar headers CORS para todas las respuestas
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,10 +53,10 @@ module.exports = async (req, res) => {
   try {
     console.log('🔬 Dependencias instaladas:');
     try {
-      const chromePkg = require('chrome-aws-lambda/package.json');
-      const puppeteerPkg = require('puppeteer-core/package.json');
-      console.log('   chrome-aws-lambda:', chromePkg.version);
-      console.log('   puppeteer-core:', puppeteerPkg.version);
+  const chromiumPkg = require('@sparticuz/chromium/package.json');
+  const puppeteerPkg = require('puppeteer-core/package.json');
+  console.log('   @sparticuz/chromium:', chromiumPkg.version);
+  console.log('   puppeteer-core:', puppeteerPkg.version);
     } catch (depErr) {
       console.error('⚠️ Error leyendo versiones de dependencias:', depErr);
     }
@@ -82,6 +85,8 @@ module.exports = async (req, res) => {
     try {
       executablePath = await chromium.executablePath();
       console.log('🔍 Path de Chromium:', executablePath);
+      console.log('🔍 chromium.args:', chromium.args);
+      console.log('🔍 chromium.headless:', chromium.headless);
     } catch (exPathErr) {
       console.error('❌ Error obteniendo path de Chromium:', exPathErr);
     }
@@ -154,18 +159,22 @@ module.exports = async (req, res) => {
     return res.status(200).send(pdfBuffer);
 
   } catch (error) {
-    // Logging detallado del error
-    console.error('❌ ERROR CRÍTICO en generación de PDF:');
-    console.error('   Mensaje:', error.message);
-    console.error('   Stack:', error.stack);
-    console.error('   Nombre:', error.name);
-    console.error('❌ Error completo:', error);
+  // Logging detallado del error
+  console.error('❌ ERROR CRÍTICO en generación de PDF:');
+  console.error('   Mensaje:', error.message);
+  console.error('   Stack:', error.stack);
+  console.error('   Nombre:', error.name);
+  console.error('❌ Error completo:', error);
+  console.error('❌ Error JSON:', JSON.stringify(error, null, 2));
+  console.log('🟢 process.version:', process.version);
+  console.log('🟢 process.versions.node:', process.versions.node);
+  console.log('🟢 process.memoryUsage:', process.memoryUsage());
     console.log('🔬 Estado de dependencias en error:');
     try {
-      const chromePkg = require('chrome-aws-lambda/package.json');
-      const puppeteerPkg = require('puppeteer-core/package.json');
-      console.log('   chrome-aws-lambda:', chromePkg.version);
-      console.log('   puppeteer-core:', puppeteerPkg.version);
+  const chromiumPkg = require('@sparticuz/chromium/package.json');
+  const puppeteerPkg = require('puppeteer-core/package.json');
+  console.log('   @sparticuz/chromium:', chromiumPkg.version);
+  console.log('   puppeteer-core:', puppeteerPkg.version);
     } catch (depErr) {
       console.error('⚠️ Error leyendo versiones de dependencias:', depErr);
     }
