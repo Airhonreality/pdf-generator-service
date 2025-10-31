@@ -17,6 +17,12 @@ module.exports = async (req, res) => {
   console.log('📥 PDF Generator - Nueva solicitud recibida');
   console.log('   Método:', req.method);
   console.log('   Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('🌎 NODE_ENV:', process.env.NODE_ENV);
+  console.log('🖥️ Platform:', process.platform);
+  console.log('🕒 Timestamp:', new Date().toISOString());
+  console.log('🔧 Vercel Region:', process.env.VERCEL_REGION);
+  console.log('🔧 Vercel Env:', process.env.VERCEL_ENV);
+  console.log('🔧 Vercel URL:', process.env.VERCEL_URL);
 
   // Configurar headers CORS para todas las respuestas
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,6 +48,15 @@ module.exports = async (req, res) => {
   let browser = null;
 
   try {
+    console.log('🔬 Dependencias instaladas:');
+    try {
+      const chromePkg = require('chrome-aws-lambda/package.json');
+      const puppeteerPkg = require('puppeteer-core/package.json');
+      console.log('   chrome-aws-lambda:', chromePkg.version);
+      console.log('   puppeteer-core:', puppeteerPkg.version);
+    } catch (depErr) {
+      console.error('⚠️ Error leyendo versiones de dependencias:', depErr);
+    }
     // Extraer HTML del body
     console.log('📄 Extrayendo HTML del body...');
     const { html } = req.body;
@@ -63,43 +78,62 @@ module.exports = async (req, res) => {
 
     // Lanzar navegador con chrome-aws-lambda
     console.log('🚀 Lanzando navegador Chromium...');
+    let executablePath;
+    try {
+      executablePath = await chrome.executablePath;
+      console.log('🔍 Path de Chromium:', executablePath);
+    } catch (exPathErr) {
+      console.error('❌ Error obteniendo path de Chromium:', exPathErr);
+    }
     browser = await puppeteer.launch({
       args: chrome.args,
       defaultViewport: chrome.defaultViewport,
-      executablePath: await chrome.executablePath,
+      executablePath,
       headless: chrome.headless,
       ignoreHTTPSErrors: true
     });
     console.log('✅ Navegador lanzado exitosamente');
 
-    // Crear nueva página
-    console.log('📃 Creando nueva página...');
-    const page = await browser.newPage();
-    console.log('✅ Página creada');
+  // Crear nueva página
+  console.log('📃 Creando nueva página...');
+  const page = await browser.newPage();
+  console.log('✅ Página creada');
+  console.log('🧩 User-Agent:', await page.evaluate(() => navigator.userAgent));
 
     // Establecer el contenido HTML
     console.log('🖊️  Estableciendo contenido HTML...');
-    await page.setContent(html, {
-      waitUntil: 'networkidle0',
-      timeout: 30000
-    });
-    console.log('✅ Contenido HTML establecido');
+    try {
+      await page.setContent(html, {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      });
+      console.log('✅ Contenido HTML establecido');
+    } catch (setContentErr) {
+      console.error('❌ Error al establecer contenido HTML:', setContentErr);
+      throw setContentErr;
+    }
 
     // Generar PDF
     console.log('🎨 Generando PDF...');
-    const pdfBuffer = await page.pdf({
-      format: 'A4',
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: {
-        top: '10mm',
-        right: '10mm',
-        bottom: '10mm',
-        left: '10mm'
-      }
-    });
-    console.log('✅ PDF generado exitosamente');
-    console.log('   Tamaño:', pdfBuffer.length, 'bytes');
+    let pdfBuffer;
+    try {
+      pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
+        }
+      });
+      console.log('✅ PDF generado exitosamente');
+      console.log('   Tamaño:', pdfBuffer.length, 'bytes');
+    } catch (pdfErr) {
+      console.error('❌ Error al generar PDF:', pdfErr);
+      throw pdfErr;
+    }
 
     // Cerrar navegador
     await browser.close();
@@ -120,6 +154,16 @@ module.exports = async (req, res) => {
     console.error('   Mensaje:', error.message);
     console.error('   Stack:', error.stack);
     console.error('   Nombre:', error.name);
+    console.error('❌ Error completo:', error);
+    console.log('🔬 Estado de dependencias en error:');
+    try {
+      const chromePkg = require('chrome-aws-lambda/package.json');
+      const puppeteerPkg = require('puppeteer-core/package.json');
+      console.log('   chrome-aws-lambda:', chromePkg.version);
+      console.log('   puppeteer-core:', puppeteerPkg.version);
+    } catch (depErr) {
+      console.error('⚠️ Error leyendo versiones de dependencias:', depErr);
+    }
 
     // Cerrar navegador si quedó abierto
     if (browser !== null) {
