@@ -81,6 +81,8 @@ module.exports = async (req, res) => {
 
     // Lanzar navegador con @sparticuz/chromium
     console.log('🚀 Lanzando navegador Chromium...');
+    const fs = require('fs');
+    const path = require('path');
     let executablePath;
     try {
       executablePath = await chromium.executablePath();
@@ -88,10 +90,30 @@ module.exports = async (req, res) => {
       console.log('🔍 chromium.args:', chromium.args);
       console.log('🔍 chromium.headless:', chromium.headless);
       if (!executablePath) {
+        console.error('❌ El path de Chromium está vacío o indefinido.');
         throw new Error('No se encontró el binario de Chromium. El path está vacío o indefinido.');
       }
+      // Validar si el archivo existe
+      try {
+        const exists = fs.existsSync(executablePath);
+        console.log('🔎 ¿Existe el binario en ese path?:', exists);
+        if (!exists) {
+          const dir = path.dirname(executablePath);
+          console.log('📁 Listando contenido del directorio:', dir);
+          try {
+            const files = fs.readdirSync(dir);
+            console.log('📄 Archivos en el directorio:', files);
+          } catch (dirErr) {
+            console.error('❌ Error al leer el directorio:', dirErr);
+          }
+          throw new Error('El binario de Chromium no existe en el path esperado: ' + executablePath);
+        }
+      } catch (fsErr) {
+        console.error('❌ Error al validar existencia del binario:', fsErr);
+        throw fsErr;
+      }
     } catch (exPathErr) {
-      console.error('❌ Error obteniendo path de Chromium:', exPathErr);
+      console.error('❌ Error obteniendo o validando path de Chromium:', exPathErr);
       throw exPathErr;
     }
     browser = await puppeteer.launch({
