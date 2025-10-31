@@ -1,20 +1,20 @@
 {
   "name": "pdf-generator-vercel",
   "version": "1.0.0",
-  "description": "Serverless PDF Generator using Puppeteer and chrome-aws-lambda for Vercel deployment",
+  "description": "Serverless PDF Generator usando Puppeteer-core y @sparticuz/chromium para Vercel",
   "main": "api/pdf.js",
   "scripts": {
     "test": "echo \"No tests yet\"",
     "dev": "vercel dev",
-    "deploy": "vercel --prod",
-    "postinstall": "node node_modules/chrome-aws-lambda/scripts/download.js"
+  "deploy": "vercel --prod"
+    
   },
   "keywords": [
     "pdf",
     "puppeteer",
     "vercel",
     "serverless",
-    "chrome-aws-lambda",
+  "@sparticuz/chromium",
     "pdf-generator",
     "html-to-pdf"
   ],
