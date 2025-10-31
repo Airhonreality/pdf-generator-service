@@ -83,38 +83,50 @@ module.exports = async (req, res) => {
     console.log('🚀 Lanzando navegador Chromium...');
     const fs = require('fs');
     const path = require('path');
-    let executablePath;
+    let browser = null;
     try {
-      executablePath = await chromium.executablePath();
-      console.log('🔍 Path de Chromium:', executablePath);
-      console.log('🔍 chromium.args:', chromium.args);
-      console.log('🔍 chromium.headless:', chromium.headless);
-      if (!executablePath) {
-        console.error('❌ El path de Chromium está vacío o indefinido.');
-        throw new Error('No se encontró el binario de Chromium. El path está vacío o indefinido.');
-      }
-      // Validar si el archivo existe
-      try {
-        const exists = fs.existsSync(executablePath);
-        console.log('🔎 ¿Existe el binario en ese path?:', exists);
-        if (!exists) {
-          const dir = path.dirname(executablePath);
-          console.log('📁 Listando contenido del directorio:', dir);
-          try {
-            const files = fs.readdirSync(dir);
-            console.log('📄 Archivos en el directorio:', files);
-          } catch (dirErr) {
-            console.error('❌ Error al leer el directorio:', dirErr);
-          }
-          throw new Error('El binario de Chromium no existe en el path esperado: ' + executablePath);
+      const executablePath = await chromium.executablePath();
+      browser = await puppeteer.launch({
+        args: chromium.args,
+        executablePath,
+        headless: chromium.headless,
+        ignoreHTTPSErrors: true
+      });
+      // ...resto del código PDF...
+      // Crear nueva página
+      const page = await browser.newPage();
+      await page.setContent(req.body.html, {
+        waitUntil: 'networkidle0',
+        timeout: 30000
+      });
+      const pdfBuffer = await page.pdf({
+        format: 'A4',
+        printBackground: true,
+        preferCSSPageSize: true,
+        margin: {
+          top: '10mm',
+          right: '10mm',
+          bottom: '10mm',
+          left: '10mm'
         }
-      } catch (fsErr) {
-        console.error('❌ Error al validar existencia del binario:', fsErr);
-        throw fsErr;
+      });
+      await browser.close();
+      browser = null;
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="generated.pdf"');
+      res.setHeader('Content-Length', pdfBuffer.length);
+      return res.status(200).send(pdfBuffer);
+    } catch (error) {
+      if (browser !== null) {
+        try { await browser.close(); } catch {}
       }
-    } catch (exPathErr) {
-      console.error('❌ Error obteniendo o validando path de Chromium:', exPathErr);
-      throw exPathErr;
+      return res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'Error al generar el PDF',
+        details: error.message,
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
     }
     browser = await puppeteer.launch({
       args: [
