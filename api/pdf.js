@@ -1,46 +1,18 @@
 /**
  * PDF Generator - Vercel Serverless Function
- * 
- * Esta función serverless genera PDFs desde HTML usando Puppeteer y @sparticuz/chromium.
- * Está optimizada para ejecutarse en el entorno de Vercel con CORS habilitado.
+ * Genera PDFs desde HTML usando Playwright.
+ * Optimizada para Vercel con CORS y manejo robusto de errores.
  */
+const { chromium } = require('playwright');
 
-const chromium = require('@sparticuz/chromium');
-const puppeteer = require('puppeteer-core');
-
-/**
- * Handler principal de la función serverless
- * @param {Object} req - Request object de Vercel
- * @param {Object} res - Response object de Vercel
- */
 module.exports = async (req, res) => {
-  console.log('📥 PDF Generator - Nueva solicitud recibida');
-  console.log('   Método:', req.method);
-  console.log('   Headers:', JSON.stringify(req.headers, null, 2));
-  console.log('🌎 NODE_ENV:', process.env.NODE_ENV);
-  console.log('🖥️ Platform:', process.platform);
-  console.log('🕒 Timestamp:', new Date().toISOString());
-  console.log('🔧 Vercel Region:', process.env.VERCEL_REGION);
-  console.log('🔧 Vercel Env:', process.env.VERCEL_ENV);
-  console.log('🔧 Vercel URL:', process.env.VERCEL_URL);
-  console.log('🟢 process.version:', process.version);
-  console.log('🟢 process.versions.node:', process.versions.node);
-  console.log('🟢 process.memoryUsage:', process.memoryUsage());
-
-  // Configurar headers CORS para todas las respuestas
+  // CORS y OPTIONS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') return res.status(200).end();
 
-  // Manejar preflight OPTIONS request para CORS
-  if (req.method === 'OPTIONS') {
-    console.log('✅ Preflight CORS request - Respondiendo con 200');
-    return res.status(200).end();
-  }
-
-  // Validar que sea un POST request
   if (req.method !== 'POST') {
-    console.log('❌ Método no permitido:', req.method);
     return res.status(405).json({
       error: 'Method Not Allowed',
       message: 'Este endpoint solo acepta POST requests',
@@ -49,162 +21,46 @@ module.exports = async (req, res) => {
   }
 
   let browser = null;
-
   try {
-    console.log('🔬 Dependencias instaladas:');
-    try {
-  const chromiumPkg = require('@sparticuz/chromium/package.json');
-  const puppeteerPkg = require('puppeteer-core/package.json');
-  console.log('   @sparticuz/chromium:', chromiumPkg.version);
-  console.log('   puppeteer-core:', puppeteerPkg.version);
-    } catch (depErr) {
-      console.error('⚠️ Error leyendo versiones de dependencias:', depErr);
-    }
-    // Extraer HTML del body
-    console.log('📄 Extrayendo HTML del body...');
-    const { html } = req.body;
+    // Validación robusta del body
+    const html = req.body && typeof req.body.html === 'string' && req.body.html.trim().length > 0
+      ? req.body.html
+      : '<h1>PDF de prueba Playwright</h1><p>HTML no recibido o vacío.</p>';
+    console.log('📥 Solicitud recibida para PDF');
+    console.log('   Método:', req.method);
+    console.log('   Longitud HTML:', html.length);
+    console.log('   Preview HTML:', html.substring(0, 100));
 
-    // Validar que el HTML exista y sea una cadena no vacía
-    if (!html || typeof html !== 'string' || html.trim().length === 0) {
-      console.log('❌ HTML inválido o vacío');
-      return res.status(400).json({
-        error: 'Bad Request',
-        message: 'El campo "html" es requerido y debe ser una cadena no vacía',
-        receivedType: typeof html,
-        receivedLength: html ? html.length : 0
-      });
-    }
-
-    console.log('✅ HTML recibido correctamente');
-    console.log('   Longitud:', html.length, 'caracteres');
-    console.log('   Preview:', html.substring(0, 100) + '...');
-
-    // Lanzar navegador con @sparticuz/chromium
-    console.log('🚀 Lanzando navegador Chromium...');
-    const fs = require('fs');
-    const path = require('path');
-    const { chromium } = require('playwright');
-    // Soporte CORS y OPTIONS
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') {
-      return res.status(200).end();
-    }
-
-    let browser = null;
-    try {
-      // Validación robusta del body
-      const html = req.body && typeof req.body.html === 'string' && req.body.html.trim().length > 0
-        ? req.body.html
-        : '<h1>PDF de prueba Playwright</h1><p>HTML no recibido o vacío.</p>';
-      console.log('📥 Solicitud recibida para PDF');
-      console.log('   Método:', req.method);
-      console.log('   Longitud HTML:', html.length);
-      console.log('   Preview HTML:', html.substring(0, 100));
-
-      browser = await chromium.launch({ headless: true });
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle' });
-      console.log('✅ Contenido HTML establecido en la página');
-      const pdfOptions = {
-        format: 'A4',
-        printBackground: true,
-        margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
-      };
-      const pdfBuffer = await page.pdf(pdfOptions);
-      console.log('✅ PDF generado. Tamaño:', pdfBuffer.length, 'bytes');
-      await browser.close();
-      browser = null;
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="playwright.pdf"');
-      res.setHeader('Content-Length', pdfBuffer.length);
-      return res.status(200).send(pdfBuffer);
-    } catch (error) {
-      console.error('❌ Error al generar PDF:', error);
-      if (browser !== null) {
-        try { await browser.close(); } catch (closeErr) { console.error('❌ Error al cerrar navegador:', closeErr); }
-      }
-      return res.status(500).json({
-        error: 'Internal Server Error',
-        message: 'Error al generar el PDF con Playwright',
-        details: error.message,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
-        timestamp: new Date().toISOString()
-      });
-    }
-    browser = await puppeteer.launch({
-      args: [
-        ...chromium.args,
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-      ],
-      executablePath,
-      headless: chromium.headless,
-      ignoreHTTPSErrors: true
-    });
-    console.log('✅ Navegador lanzado exitosamente');
-
-  // Crear nueva página
-  console.log('📃 Creando nueva página...');
-  const page = await browser.newPage();
-  console.log('✅ Página creada');
-  console.log('🧩 User-Agent:', await page.evaluate(() => navigator.userAgent));
-
-    // Establecer el contenido HTML
-    console.log('🖊️  Estableciendo contenido HTML...');
-    try {
-      await page.setContent(html, {
-        waitUntil: 'networkidle0',
-        timeout: 30000
-      });
-      console.log('✅ Contenido HTML establecido');
-    } catch (setContentErr) {
-      console.error('❌ Error al establecer contenido HTML:', setContentErr);
-      throw setContentErr;
-    }
-
-    // Generar PDF
-    console.log('🎨 Generando PDF...');
-    let pdfBuffer;
-    try {
-      pdfBuffer = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        preferCSSPageSize: true,
-        margin: {
-          top: '10mm',
-          right: '10mm',
-          bottom: '10mm',
-          left: '10mm'
-        }
-      });
-      console.log('✅ PDF generado exitosamente');
-      console.log('   Tamaño:', pdfBuffer.length, 'bytes');
-    } catch (pdfErr) {
-      console.error('❌ Error al generar PDF:', pdfErr);
-      throw pdfErr;
-    }
-
-    // Cerrar navegador
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle' });
+    console.log('✅ Contenido HTML establecido en la página');
+    const pdfOptions = {
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '10mm', right: '10mm', bottom: '10mm', left: '10mm' }
+    };
+    const pdfBuffer = await page.pdf(pdfOptions);
+    console.log('✅ PDF generado. Tamaño:', pdfBuffer.length, 'bytes');
     await browser.close();
     browser = null;
-    console.log('✅ Navegador cerrado');
-
-    // Enviar respuesta con el PDF
-    console.log('📤 Enviando PDF al cliente...');
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="generated.pdf"');
+    res.setHeader('Content-Disposition', 'attachment; filename="playwright.pdf"');
     res.setHeader('Content-Length', pdfBuffer.length);
-    
     return res.status(200).send(pdfBuffer);
-
   } catch (error) {
-  // Logging detallado del error
-  console.error('❌ ERROR CRÍTICO en generación de PDF:');
-  console.error('   Mensaje:', error.message);
+    console.error('❌ Error al generar PDF:', error);
+    if (browser !== null) {
+      try { await browser.close(); } catch (closeErr) { console.error('❌ Error al cerrar navegador:', closeErr); }
+    }
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Error al generar el PDF con Playwright',
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      timestamp: new Date().toISOString()
+    });
+  }
   console.error('   Stack:', error.stack);
   console.error('   Nombre:', error.name);
   console.error('❌ Error completo:', error);
@@ -214,10 +70,6 @@ module.exports = async (req, res) => {
   console.log('🟢 process.memoryUsage:', process.memoryUsage());
     console.log('🔬 Estado de dependencias en error:');
     try {
-  const chromiumPkg = require('@sparticuz/chromium/package.json');
-  const puppeteerPkg = require('puppeteer-core/package.json');
-  console.log('   @sparticuz/chromium:', chromiumPkg.version);
-  console.log('   puppeteer-core:', puppeteerPkg.version);
     } catch (depErr) {
       console.error('⚠️ Error leyendo versiones de dependencias:', depErr);
     }
@@ -242,17 +94,4 @@ module.exports = async (req, res) => {
       timestamp: new Date().toISOString()
     });
 
-  } finally {
-    // Asegurar que el navegador se cierre en todos los casos
-    if (browser !== null) {
-      console.log('🧹 Limpieza final: cerrando navegador...');
-      try {
-        await browser.close();
-        console.log('✅ Navegador cerrado en bloque finally');
-      } catch (closeError) {
-        console.error('❌ Error en limpieza final:', closeError.message);
-      }
-    }
-    console.log('🏁 Solicitud completada\n');
-  }
 };
