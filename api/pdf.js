@@ -87,8 +87,12 @@ module.exports = async (req, res) => {
       console.log('🔍 Path de Chromium:', executablePath);
       console.log('🔍 chromium.args:', chromium.args);
       console.log('🔍 chromium.headless:', chromium.headless);
+      if (!executablePath) {
+        throw new Error('No se encontró el binario de Chromium. El path está vacío o indefinido.');
+      }
     } catch (exPathErr) {
       console.error('❌ Error obteniendo path de Chromium:', exPathErr);
+      throw exPathErr;
     }
     browser = await puppeteer.launch({
       args: [
