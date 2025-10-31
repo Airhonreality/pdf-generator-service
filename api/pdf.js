@@ -5,7 +5,7 @@
  * Está optimizada para ejecutarse en el entorno de Vercel con CORS habilitado.
  */
 
-const chrome = require('chrome-aws-lambda');
+const chromium = require('@sparticuz/chromium');
 const puppeteer = require('puppeteer-core');
 
 /**
@@ -76,20 +76,25 @@ module.exports = async (req, res) => {
     console.log('   Longitud:', html.length, 'caracteres');
     console.log('   Preview:', html.substring(0, 100) + '...');
 
-    // Lanzar navegador con chrome-aws-lambda
+    // Lanzar navegador con @sparticuz/chromium
     console.log('🚀 Lanzando navegador Chromium...');
     let executablePath;
     try {
-      executablePath = await chrome.executablePath;
+      executablePath = await chromium.executablePath();
       console.log('🔍 Path de Chromium:', executablePath);
     } catch (exPathErr) {
       console.error('❌ Error obteniendo path de Chromium:', exPathErr);
     }
     browser = await puppeteer.launch({
-      args: chrome.args,
-      defaultViewport: chrome.defaultViewport,
+      args: [
+        ...chromium.args,
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ],
       executablePath,
-      headless: chrome.headless,
+      headless: chromium.headless,
       ignoreHTTPSErrors: true
     });
     console.log('✅ Navegador lanzado exitosamente');
